@@ -293,7 +293,7 @@ class RL:
                                   min_epsilon,
                                   epsilon_decay_ratio,
                                   n_episodes)
-
+        rewards_over_episodes = []
         for e in tqdm(range(n_episodes), leave=False):
             self.callbacks.on_episode_begin(self)
             self.callbacks.on_episode(self, episode=e)
@@ -301,10 +301,14 @@ class RL:
             done = False
             state = convert_state_obs(state, done)
             action = select_action(state, Q, epsilons[e])
+            curr_episode_rewards = 0.0
+            iteration = 0
             while not done:
                 if self.render:
                     warnings.warn("Occasional render has been deprecated by openAI.  Use test_env.py to render.")
                 next_state, reward, terminated, truncated, _ = self.env.step(action)
+                curr_episode_rewards += reward
+                iteration += 1
                 if truncated:
                     warnings.warn("Episode was truncated.  Bootstrapping 0 reward.")
                 done = terminated or truncated
@@ -319,6 +323,7 @@ class RL:
             pi_track.append(np.argmax(Q, axis=1))
             self.render = False
             self.callbacks.on_episode_end(self)
+            rewards_over_episodes.append(curr_episode_rewards/iteration)
 
         V = np.max(Q, axis=1)
         # Explanation of lambda:
@@ -328,4 +333,4 @@ class RL:
         #       policy[state] = action
         #   return policy[s]
         pi = lambda s: {s: a for s, a in enumerate(np.argmax(Q, axis=1))}[s]
-        return Q, V, pi, Q_track, pi_track
+        return Q, V, pi, Q_track, pi_track, rewards_over_episodes
